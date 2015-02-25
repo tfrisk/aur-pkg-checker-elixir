@@ -34,24 +34,30 @@ defmodule AurChecker do
   defp fetch_url(url) do
     :inets.start
     :ssl.start
-    {:ok, {{_version, 200, 'OK'}, _headers, body}} =
-      :httpc.request(:get, {url,
-        []}, [{:ssl,[{:verify,0}]}], [])
-    body
+    
+    case :httpc.request(:get, {url,
+        []}, [{:ssl,[{:verify,0}]}], []) do
+      {:ok, {{_version, 200, 'OK'}, _headers, body}} -> body
+      {:ok, {{_version, 404, 'Not Found'}, _headers, _body}} -> :not_found
+      {:error, _} -> :error
+    end
   end
 
   # Fetch the latest package versions from AUR.
   # Returns a map in format %{name: name, version: version}.
   defp fetch_latest_version_info(packagename) do
     url = to_char_list("http://aur.archlinux.org/packages/" <> packagename)
-    body = fetch_url(url)
-
-    # Parse version info from response
-    rawlines = String.split(to_string(body), "\n")
-    versionline = Enum.filter(rawlines, fn line ->
-      Regex.match?(~r/Package Details:\s/, line) end)
-    [name, version] = String.split(to_string(versionline), ["\t<h2>Package Details: "," ","</h2>"], trim: true)
-    %{name: name, version: version}
+    case fetch_url(url) do
+      :not_found -> :not_found
+      :error -> :error
+      body -> (
+      # Parse version info from response
+      rawlines = String.split(to_string(body), "\n")
+      versionline = Enum.filter(rawlines, fn line ->
+        Regex.match?(~r/Package Details:\s/, line) end)
+      [name, version] = String.split(to_string(versionline), ["\t<h2>Package Details: "," ","</h2>"], trim: true)
+      %{name: name, version: version})
+    end
   end
 
   # Compares the current and latest versions for a given package map.
@@ -79,11 +85,21 @@ defmodule AurChecker do
   """
   def get_updated_packages(packagelist) do
     Enum.map(packagelist, fn package ->
-      %{name: _, version: latestversion} = fetch_latest_version_info(package.name)
-      %{name: package.name,
-        currentversion: package.version,
-        latestversion: latestversion,
-        status: compare_versions(package.version, latestversion)}
+      case fetch_latest_version_info(package.name) do
+      %{name: _, version: latestversion} -> (
+        %{name: package.name,
+          currentversion: package.version,
+          latestversion: latestversion,
+          status: compare_versions(package.version, latestversion)})
+      :not_found ->
+        %{name: package.name,
+          currentversion: package.version,
+          status: "AUR info not found, check package status manually."}
+      :error ->
+        %{name: package.name,
+          currentversion: package.version,
+          status: "Error getting update status."}
+      end
     end)
   end
 end
