@@ -34,9 +34,9 @@ defmodule AurChecker do
   defp fetch_url(url) do
     :inets.start
     :ssl.start
-    
+
     case :httpc.request(:get, {url,
-        []}, [{:ssl,[{:verify,0}]}], []) do
+        []}, [{:ssl, [{:verify,0}]}], []) do
       {:ok, {{_version, 200, 'OK'}, _headers, body}} -> body
       {:ok, {{_version, 404, 'Not Found'}, _headers, _body}} -> :not_found
       {:error, _} -> :error
@@ -55,7 +55,7 @@ defmodule AurChecker do
       rawlines = String.split(to_string(body), "\n")
       versionline = Enum.filter(rawlines, fn line ->
         Regex.match?(~r/Package Details:\s/, line) end)
-      [name, version] = String.split(to_string(versionline), ["\t<h2>Package Details: "," ","</h2>"], trim: true)
+      [name, version] = String.split(to_string(versionline), ["\t<h2>Package Details: ", " ", "</h2>"], trim: true)
       %{name: name, version: version})
     end
   end
@@ -104,12 +104,11 @@ defmodule AurChecker do
   end
 end
 
-
 installed = AurChecker.get_installed_packages
 updatelist = AurChecker.get_updated_packages(installed)
 
 # Current time, pretty ugly code. Should use Timex library instead.
-{{year,month,day}, {hour,minute,second}} = :calendar.local_time
+{{year, month, day}, {hour, minute, second}} = :calendar.local_time
 IO.puts "Current time is #{year}-#{month}-#{day} #{hour}:#{minute}:#{second}"
 IO.puts "Checking package versions"
 Enum.map updatelist, fn item ->
