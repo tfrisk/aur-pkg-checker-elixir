@@ -36,7 +36,7 @@ defmodule AurChecker do
     :ssl.start
 
     case :httpc.request(:get, {url,
-        []}, [{:ssl, [{:verify,0}]}], []) do
+        []}, [{:ssl, [{:verify, 0}]}], []) do
       {:ok, {{_version, 200, 'OK'}, _headers, body}} -> body
       {:ok, {{_version, 404, 'Not Found'}, _headers, _body}} -> :not_found
       {:error, _} -> :error
